@@ -1,2 +1,528 @@
-Test 1 2 3
-321
+/* Roguelike engine */
+/* Variable Declarations */
+var world;
+var visibility;
+var mobs;
+//position of items in the world
+var items;
+var playerX = 4;
+var playerY = 4;
+var rowLength = 20;
+var rooms;
+var roomArr;
+//offset -2, each one is [char,speed,health,[x/y location]]
+var mobArr;
+//Array of items on the ground for the current floor
+var itemArr;
+//Start at 0, increment
+var Floor;
+//Start at 10, player's max health
+var MaxHealth;
+//Start at 10, player's current health
+var Health;
+//Player's inventory
+var inventory;
+
+/* control bindings */
+
+$(document).on("click",".cell","",function(){
+    x = $(this).attr("Xnum");
+    y = $(this).attr("Ynum");
+    window.alert(x+":"+y+": mob:"+mobs[x][y]+" world:"+world[x][y]+" visibility:"+visibility[x][y]+" items:"+items[x][y]);
+});
+
+$(document).on("click",".lights","",function(){
+    visibility = new Array(rowLength);
+    for(a=0;a<rowLength;a++){
+    visibility[a] = Array.apply(null, Array(rowLength)).map(function() { return 1 });
+    }
+    writeBoard();
+});
+
+$(document).on("keypress","","",function(event){
+/* W - North, A - West, S - South, D - East */
+/* Inventory use 0-1, uses that item and destroys it */
+switch(event.which){case 119:movePlayer("N");break;case 97:movePlayer("W");break;case 115:movePlayer("S");break;case 100:movePlayer("E");break;case 48:case 49:case 50:case 51:case 52:case 53:case 54:case 55:case 56:case 57:useItem(event.which-48);break;}
+if(isATimeStepAction(event.which))
+{
+  for(i=0;i<mobArr.length;i++){
+      mobX = mobArr[i][3][0];
+      mobY = mobArr[i][3][1];
+      //temp stupid logic, move randomly
+      moveX = Math.floor(Math.random()*3)-1;
+      moveY = Math.floor(Math.random()*3)-1;
+      mobMove(i,mobX+moveX,mobY+moveY);
+  }
+}
+});
+
+function mobMove(mobArrI,mobX,mobY){
+if(world[mobX][mobY] != 0 || mobs[mobX][mobY] != 0){
+    /* do nothing because of collision */
+ } else {
+  oldX = mobArr[mobArrI][3][0];
+  oldY = mobArr[mobArrI][3][1];
+  //remove old
+  mobs[oldX][oldY] = 0;
+  //add new
+  mobs[mobX][mobY] = mobArrI+2;a
+  //update location
+  mobArr[mobArrI][3] = [mobX,mobY];
+  //redraw the squares
+  updateSquare(oldX,oldY,1);
+  updateSquare(mobX,mobY,1);
+ }
+}
+
+function isATimeStepAction(ewhich){if(ewhich == 119 || ewhich == 97 || ewhich == 115 || ewhich == 100){return true;}else{return false;}}
+
+/* display functions */
+
+function writeBoard(){
+    $(".cell").remove();
+    $("br").remove();
+for(x=0;x<rowLength;x++){for(y=0;y<rowLength;y++){
+  if(visibility[x][y] == 0){$('.world').append("<div class='cell hidey' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else if(mobs[x][y] == 1){$('.world').append("<div class='cell plains' Xnum='"+x+"' Ynum='"+y+"'>@</div>")}
+  else if(mobs[x][y] > 1){$('.world').append("<div class='cell plains' Xnum='"+x+"' Ynum='"+y+"'>"+mobArr[mobs[x][y]-2][0]+"</div>")}
+  else if(items[x][y] > 0){$('.world').append("<div class='cell plains' Xnum='"+x+"' Ynum='"+y+"'>"+itemArr[items[x][y]-1][1]+"</div>")}
+  else if(world[x][y] == 2){$('.world').append("<div class='cell wall' Xnum='"+x+"' Ynum='"+y+"'>=</div>")}
+  else if(world[x][y] == 3){$('.world').append("<div class='cell path' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else if(world[x][y] == 4){$('.world').append("<div class='cell path' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else if(world[x][y] == 5){$('.world').append("<div class='cell dark' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else if(world[x][y] == 6){$('.world').append("<div class='cell path' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else if(world[x][y] == 7){$('.world').append("<div class='cell path' Xnum='"+x+"' Ynum='"+y+"'>*</div>")}
+  else if(world[x][y] == 8){$('.world').append("<div class='cell path' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else if(world[x][y] == 9){$('.world').append("<div class='cell path' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  else{$('.world').append("<div class='cell plains' Xnum='"+x+"' Ynum='"+y+"'>.</div>")}
+  if(y==(rowLength-1)){$('.world').append("<br/>")}
+}}}
+
+function redrawBlock(x,y){
+updateSquare(x-1,y-1);updateSquare(x-1,y);updateSquare(x-1,y+1);updateSquare(x,y-1);
+updateSquare(x,y+1);updateSquare(x+1,y-1);updateSquare(x+1,y);updateSquare(x+1,y+1);    
+$temp = $("div[Xnum='"+(x)+"'][Ynum='"+(y)+"']");
+$temp.addClass(getClass(world[x][y]));
+$temp.removeClass("hidey");
+$temp.html("@");}
+
+function updateSquare(x,y,z){
+    $temp = $("div[Xnum='"+(x)+"'][Ynum='"+(y)+"']");
+    $temp.addClass(getClass(world[x][y]));
+    if(z != 1){$temp.removeClass("hidey");}
+    if(mobs[x][y] != 0){
+        $temp.html(getMobText(mobs[x][y]));
+    }else if (items[x][y] != 0){
+        $temp.html(itemArr[items[x][y]-1][1]);
+    }else{$temp.html(getWorldText(world[x][y]));}}
+
+
+function getClass(type){switch(type){case 0:return "plains";break;case 2:return "wall";break;case 5:return "dark";break;}}
+function getWorldText(type){switch(type){case 0:return ".";break;case 2:return "=";break;case 3:case 8:return ".";break;case 4:return ".";break;case 5:return ".";break;case 6:case 9:return ".";break;case 7:return "*";break;}}
+function getMobText(type){return "g";}
+
+/* player movement */
+
+function movePlayer(direction){
+    x = playerX;
+    y = playerY;
+    switch(direction){
+        case 'N':
+         x -= 1;
+         break;
+        case 'W':
+         y -= 1;
+         break;
+        case 'E':
+         y += 1;
+         break;
+        case 'S':
+         x += 1;
+         break;   
+    }
+    if(updatePlayerPosition(x,y)){
+    updateVisibility(x,y);
+    redrawBlock(x,y);
+    itemPickup(x,y);
+    }
+}
+
+function itemPickup(x,y){
+ index = items[x][y]-1;
+ if(items[x][y] == 0){
+     //do nothing
+ } else if(window.confirm("Pick up "+itemArr[index][0]+"?")){
+   index = items[x][y]-1;
+   inventory.push(itemArr[index]);
+   writeInventory();
+   itemArr.splice(index,1);
+   items[x][y] = 0;
+ }
+}
+
+function useItem(index){
+ if(index < inventory.length){
+ eval(inventory[index][4]);
+ inventory.splice(index,1);
+ writeInventory();}
+}
+
+function writeInventory(){
+ list = "";
+ for(i=0;i<inventory.length;i++){list += i+" - ";list += inventory[i][0];list += "<br> ";}
+ $(".inventory").html("Inventory:<br> "+list);
+}
+
+function updatePlayerPosition(x,y){if(world[x][y] == 2 || world[x][y] == 5 || mobs[x][y] != 0){return false;}else if(world[x][y] == 7){window.alert("You made it to the next level!");initializeFloor();}else{mobs[playerX][playerY] = 0;playerX = x;playerY = y;mobs[playerX][playerY] = 1;return true;}}
+
+/* visibility */
+
+function updateVisibility(x,y){visibility[x-1][y-1] = 1;visibility[x][y-1] = 1;visibility[x+1][y-1] = 1;visibility[x-1][y] = 1;visibility[x][y] = 1;visibility[x+1][y] = 1;visibility[x-1][y+1] = 1;visibility[x][y+1] = 1;visibility[x+1][y+1] = 1;}
+
+/* world creation */
+
+function generateRooms(rooms){
+attempts = 0;
+flag = 0;
+for(k=0;(k<rooms&&attempts<20);k++)
+{
+    xC = Math.floor(Math.random()*(rowLength-6))+1;
+    yC = Math.floor(Math.random()*(rowLength-7))+1;
+    xLen = Math.floor(Math.random()*3)+3;
+    yLen = Math.floor(Math.random()*3)+4;
+    topwall = new Array(); for(j=0;j<yLen+1;j++){if(world[xC][yC+j]!=5){topwall.push([xC,yC+j]);}else{flag=1;}}
+    leftwall = new Array(); for(j=1;j<xLen+1;j++){if(world[xC+j][yC]!=5){leftwall.push([xC+j,yC]);}else{flag=1;}}
+    rightwall = new Array(); for(j=1;j<xLen;j++){if(world[xC+j][yC+yLen]!=5){rightwall.push([xC+j,yC+yLen]);}else{flag=1;}}
+    bottomwall = new Array(); for(j=1;j<yLen+1;j++){if(world[xC+xLen][yC+j]!=5){bottomwall.push([xC+xLen,yC+j]);}else{flag=1;}}
+    if(flag==0)
+    {if(k==0){playerX=Math.floor(((xC*2)+xLen)/2);
+              playerY=Math.floor(((yC*2)+yLen)/2);}
+     carveRoom(xC+1,yC+1,xC+xLen,yC+yLen);
+     if(k==(rooms-1)){world[Math.floor(((xC*2+xLen)/2))][Math.floor(((yC*2+yLen)/2))] = 7;}
+     writeEdges(topwall,leftwall,rightwall,bottomwall);
+     roomArr.push([xC,yC,xLen,yLen])}
+    else{k--;}
+    flag=0;
+    attempts++;
+    if(k<(rooms-1) && attempts == 20){
+      xC = roomArr[roomArr.length-1][0];
+      yC = roomArr[roomArr.length-1][0];
+      xLen = roomArr[roomArr.length-1][0];
+      xLen = roomArr[roomArr.length-1][0];
+      world[Math.floor(((xC*2+xLen)/2))][Math.floor(((yC*2+yLen)/2))] = 7;}
+}
+}
+
+function initializeWorld(){
+ inventory = new Array();
+ MaxHealth = 10;
+ Health = 10;
+ $temp = $(".health");
+ $temp.html("Health: "+Health);
+ Floor = 0;
+ initializeFloor();
+}
+
+function updateHealthDisplay(heal){$temp = $(".health");$temp.html("Health: "+Health);}
+
+function initializeFloor(){
+world = new Array(rowLength);
+visibility = new Array(rowLength);
+mobs = new Array(rowLength);
+items = new Array(rowLength);
+roomArr = new Array();
+mobArr = new Array();
+itemArr = new Array();
+Floor = Floor + 1;
+$temp = $(".floor");
+$temp.html("Floor: "+Floor);
+for(a=0;a<rowLength;a++){
+    world[a] = Array.apply(null, Array(rowLength)).map(function() { return 2 });
+    mobs[a] = Array.apply(null, Array(rowLength)).map(function() { return 0 });
+    visibility[a] = Array.apply(null, Array(rowLength)).map(function() { return 1 });
+    items[a] = Array.apply(null, Array(rowLength)).map(function() { return 0 });
+}
+generateRooms(rooms = Math.floor(Math.random()*3)+3);
+defaultMobsAndVisibility();
+connectRooms();
+generateMobs(1);
+generateItems(1);
+writeInventory();
+writeBoard();
+}
+
+function generateItems(numOfItems){
+ for(i=0;i<numOfItems;i++){
+   //make an item
+   // 0 - Name
+   // 1 - display character
+   // 2 - id
+   // 3 - location
+   // 4 - item use
+   $item = ["potion","d",i+1,0,"Health +=10;updateHealthDisplay(Health)"];
+   //place it randomly  
+   x = Math.floor(Math.random()*(rowLength-1));
+   y = Math.floor(Math.random()*(rowLength-1));
+   while(world[x][y] == 2 || world[x][y] == 5){
+    x = Math.floor(Math.random()*(rowLength-1));
+    y = Math.floor(Math.random()*(rowLength-1));
+   }
+   //update $item location
+   $item[3] = [x,y];
+   //push to itemArr
+   itemArr.push($item);
+   //update items map
+   items[x][y] = $item[2];
+   /* window.alert("item added:"+$item[3][0]+":"+$item[3][1]);
+   window.alert("confirm:"+items[x][y]+":"+x+":"+y); */
+}
+}
+
+function generateMobs(numOfMobs){
+    //we'll write generators for this later
+    //right now a mob has 4 attributes
+    //0 - character representation
+    //1 - speed
+    //2 - health
+    //3 - location
+    for(a=0;a<numOfMobs;a++){
+    newMob = ["g",1,1,[(roomArr[roomArr.length-1][0])+1,(roomArr[roomArr.length-1][1])+a+1]];
+    mobArr.push(newMob);
+    mobs[newMob[3][0]][newMob[3][1]] = 2;
+    }
+       
+}
+
+function defaultMobsAndVisibility(){mobs[playerX][playerY] = 1;updateVisibility(playerX,playerY);}
+
+function writeEdges(awa,bwa,cwa,dwa){
+for(tec=0;tec<awa.length;tec++){world[awa[tec][0]][awa[tec][1]] = 5;}
+for(tec=0;tec<bwa.length;tec++){world[bwa[tec][0]][bwa[tec][1]] = 5;}
+for(tec=0;tec<cwa.length;tec++){world[cwa[tec][0]][cwa[tec][1]] = 5;}
+for(tec=0;tec<dwa.length;tec++){world[dwa[tec][0]][dwa[tec][1]] = 5;}
+}
+
+function carveRoom(a,b,c,d){for(i=a;i<c;i++){for(j=b;j<d;j++){world[i][j] = 0;}}}
+
+function connectRooms(){
+temp = [0,0]
+for(l=0;l<roomArr.length;l++)
+{
+ for(m=0;m<roomArr.length;m++)
+ {
+  if(l>m){temp=nearestPoint(l,m);
+          //window.alert("room1:"+l+" x:"+roomArr[l][0]+" y:"+roomArr[l][1]);
+          //window.alert("room2:"+m+" x:"+roomArr[m][0]+" y:"+roomArr[m][1]);
+          //window.alert("connection:"+temp[1]+" distance:"+temp[0]);
+          switch(temp[1]){
+           case 2:connectHFace(l,"B",m,"T");break;
+           case 3:connectVFace(l,"R",m,"L");break;
+           case 4:connectAngle(l,"R",m,"T");break;
+           case 5:connectHFace(l,"T",m,"B");break;
+           case 7:connectAngle(l,"T",m,"L");break;
+           case 8:connectVFace(l,"R",m,"L");break;
+           case 9:connectVFace(l,"L",m,"R");break;
+           case 10:connectAngle(l,"L",m,"T");break;
+           case 12:connectHFace(l,"B",m,"T");break;
+           case 13:connectAngle(l,"T",m,"R");break;
+           case 14:connectVFace(l,"L",m,"R");break;
+           case 15:connectHFace(l,"T",m,"B");break;
+           }
+         }
+ }
+}
+}
+
+function connectHFace(r1,w1,r2,w2){
+if(w1 == "T"){
+  xCen = roomArr[r1][0];
+  yCen = Math.floor((roomArr[r1][1]+roomArr[r1][1]+roomArr[r1][3])/2);
+  x2Cen = roomArr[r2][0]+roomArr[r2][2];
+  y2Cen = Math.floor((roomArr[r2][1]+roomArr[r2][1]+roomArr[r2][3])/2);
+ }else{
+  xCen = roomArr[r2][0];
+  yCen = Math.floor((roomArr[r2][1]+roomArr[r2][1]+roomArr[r2][3])/2);
+  x2Cen = roomArr[r1][0]+roomArr[r1][2];
+  y2Cen = Math.floor((roomArr[r1][1]+roomArr[r1][1]+roomArr[r1][3])/2);
+}
+if(Math.abs(xCen-x2Cen) <2)
+ {bothDoors=Math.floor((yCen + y2Cen)/2);
+  world[xCen][bothDoors] = 3;
+  world[x2Cen][bothDoors] = 3;}
+else
+ {
+ //door
+ world[xCen][yCen] = 3;
+ //first step up
+ world[xCen-1][yCen] = 3;
+ //move sidesways
+ if(yCen>y2Cen){steps=-1;}else{steps=1;}
+ for(a=yCen;a!=y2Cen;a+=steps){
+  world[xCen-1][a] = 3;
+  }
+ //finish stepping up
+ for(b=(xCen-1);b>=x2Cen;b--){
+  world[b][a] = 3;
+  }
+ }
+}
+
+function connectVFace(r1,w1,r2,w2){
+if(w1 == "L"){
+  xCen = Math.floor((roomArr[r1][0]+roomArr[r1][0]+roomArr[r1][2])/2);
+  yCen = roomArr[r1][1];
+  x2Cen = Math.floor((roomArr[r2][0]+roomArr[r2][0]+roomArr[r2][2])/2);
+  y2Cen = roomArr[r2][1]+roomArr[r2][3];
+ }else{
+  xCen = Math.floor((roomArr[r2][0]+roomArr[r2][0]+roomArr[r2][2])/2);
+  yCen = roomArr[r2][1];
+  x2Cen = Math.floor((roomArr[r1][0]+roomArr[r1][0]+roomArr[r1][2])/2);
+  y2Cen = roomArr[r1][1]+roomArr[r1][3];
+}
+if(Math.abs(yCen-y2Cen) <2)
+ {bothDoors=Math.floor((xCen + x2Cen)/2);
+  world[bothDoors][yCen] = 4;
+  world[bothDoors][y2Cen] = 4;}
+else
+ {
+ //door
+ world[xCen][yCen] = 4;
+ //first step left
+ world[xCen][yCen-1] = 4;
+ //move vertical
+ if(xCen>x2Cen){steps=-1;}else{steps=1;}
+ for(a=xCen;a!=x2Cen;a+=steps){
+  world[a][yCen-1] = 4;
+  }
+ //finish stepping up
+ for(b=(yCen-1);b>=y2Cen;b--){
+  world[a][b] = 4;
+  }
+ }
+}
+
+function connectAngle(r1,w1,r2,w2){
+if(w1 == "T"){if(w2 == "R"){connectTtoR(r1,r2)}else{connectTtoL(r1,r2)}}
+else{if(w1 == "L"){connectLtoT(r1,r2)}else{connectRtoT(r1,r2)}}
+}
+
+function connectTtoR(r1,r2){
+  xCen = roomArr[r1][0];
+  yCen = Math.floor((roomArr[r1][1]+roomArr[r1][1]+roomArr[r1][3])/2);
+  x2Cen = Math.floor((roomArr[r2][0]+roomArr[r2][0]+roomArr[r2][2])/2);
+  y2Cen = roomArr[r2][1]+roomArr[r2][3];
+ //door
+ world[xCen][yCen] = 6;
+ //first step up
+ world[xCen-1][yCen] = 6;
+ //keep moving up
+ if(xCen>x2Cen){steps=-1;}else{steps=1;}
+ for(a=xCen;a!=x2Cen;a+=steps){
+  world[a][yCen] = 6;
+  }
+ //move left
+ for(b=yCen;b>=y2Cen;b--){
+  world[a][b] = 6;
+  }
+}
+
+function connectTtoL(r1,r2){
+  xCen = roomArr[r1][0];
+  yCen = Math.floor((roomArr[r1][1]+roomArr[r1][1]+roomArr[r1][3])/2);
+  x2Cen = Math.floor((roomArr[r2][0]+roomArr[r2][0]+roomArr[r2][2])/2);
+  y2Cen = roomArr[r2][1];
+ //door
+ world[xCen][yCen] = 6;
+ //first step up
+ world[xCen-1][yCen] = 6;
+ //keep moving up
+ if(xCen>x2Cen){steps=-1;}else{steps=1;}
+ for(a=xCen;a!=x2Cen;a+=steps){
+  world[a][yCen] = 6;
+  }
+ //move right
+ for(b=(yCen);b<=y2Cen;b++){
+  world[a][b] = 6;
+  }
+}
+
+function connectLtoT(r1,r2){
+  xCen = Math.floor((roomArr[r1][0]+roomArr[r1][0]+roomArr[r1][2])/2);
+  yCen = roomArr[r1][1];
+  x2Cen = roomArr[r2][0];
+  y2Cen = Math.floor((roomArr[r2][1]+roomArr[r2][1]+roomArr[r2][3])/2);
+ //door
+ world[xCen][yCen] = 9;
+ //first step left
+ world[xCen][yCen-1] = 9;
+ //keep moving left
+ if(yCen>y2Cen){steps=-1;}else{steps=1;}
+ for(a=yCen;a!=y2Cen;a+=steps){
+  world[xCen][a] = 9;
+  }
+ //move down
+ for(b=xCen;b<=x2Cen;b++){
+  world[b][a] = 9;
+  }
+}
+
+function connectRtoT(r1,r2){
+  xCen = Math.floor((roomArr[r1][0]+roomArr[r1][0]+roomArr[r1][2])/2);
+  yCen = roomArr[r1][1]+roomArr[r1][3];
+  x2Cen = roomArr[r2][0];
+  y2Cen = Math.floor((roomArr[r2][1]+roomArr[r2][1]+roomArr[r2][3])/2);
+ //door
+ world[xCen][yCen] = 8;
+ //first step right
+ world[xCen][yCen+1] = 8;
+ //keep moving right
+ if(yCen>y2Cen){steps=-1;}else{steps=1;}
+ for(a=yCen;a!=y2Cen;a+=steps){
+  world[xCen][a] = 8;
+  }
+ //move down
+ for(b=xCen;b<=x2Cen;b++){
+  world[b][a] = 8;
+  }
+}
+
+
+function nearestPoint(arr1,arr2){
+retval = 1;
+closest = distance(roomArr[arr1][0],roomArr[arr1][1],roomArr[arr2][0],roomArr[arr2][1])
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1],roomArr[arr2][0],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 2;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 3;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 4;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 5;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 6;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 7;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1])
+if(closest > dis){closest = dis;retval = 8;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1],roomArr[arr2][0],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 9;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1],roomArr[arr2][0],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 10;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 11;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 12;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 13;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 14;}
+dis = distance(roomArr[arr1][0],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 15;}
+dis = distance(roomArr[arr1][0]+roomArr[arr1][2],roomArr[arr1][1]+roomArr[arr1][3],roomArr[arr2][0]+roomArr[arr2][2],roomArr[arr2][1]+roomArr[arr2][3])
+if(closest > dis){closest = dis;retval = 16;}
+return [closest,retval];
+}
+
+function distance(xa,ya,xb,yb){return Math.abs(xb-xa)+Math.abs(ya-yb);}
+
+initializeWorld();
